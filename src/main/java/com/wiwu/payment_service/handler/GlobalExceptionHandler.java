@@ -1,5 +1,6 @@
 package com.wiwu.payment_service.handler;
 
+import com.wiwu.payment_service.exception.InvalidPaymentStateException;
 import com.wiwu.payment_service.exception.PaymentNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,5 +17,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidPaymentStateException.class)
+    public ResponseEntity<String> handleInvalidPaymentState(InvalidPaymentStateException ex){
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ex.getMessage());
+
     }
 }
