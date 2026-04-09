@@ -2,45 +2,44 @@
 
 ## 📌 Overview
 
-This project is a **Payment Orchestration Microservice** built with **Java and Spring Boot**.
-The service manages the **lifecycle of payments** in a clean, scalable and professional way, acting as a core backend service that can later integrate with external **Payment Service Providers (PSPs)**.
+**Payment Service** is a backend **Payment Orchestration Microservice** built with **Java and Spring Boot**, designed to model real-world payment flows used in production systems.  
+The service focuses on **clean architecture, proper domain modeling, and real PSP integration**, rather than simple SDK-based demos.
 
-The main focus of this project is **architecture, domain modeling, and clean REST API design**, not just calling a payment SDK.
+The project currently integrates with **Mercado Pago (Sandbox)** using **direct REST API calls**, following best practices used in fintech and large-scale systems.
 
 ---
 
 ## 🎯 Project Goals
 
-- Model real-world payment flows used in production systems
-- Build a clean and maintainable Spring Boot REST API
-- Apply best practices for:
-  - Domain modeling
-  - Persistence with JPA
+- Model real-world payment lifecycles (synchronous and asynchronous)
+- Build a production-ready REST API
+- Apply best practices in:
+  - Domain-driven design
+  - Payment state management
   - Error handling
-  - API design
-- Prepare the foundation for future integration with external payment APIs (e.g. Mercado Pago, Stripe)
-
-This project is intended to be **portfolio-quality**, following market standards.
+  - External API integration
+- Avoid tight coupling with payment providers
+- Prepare the system for real production environments
 
 ---
 
 ## 🧱 Architecture Overview
 
-The service follows a layered architecture:
+The service follows a **clean, layered architecture**:
 
 - **Controller Layer**  
-  Handles HTTP requests and responses.
+  Exposes REST endpoints and handles HTTP concerns.
 
 - **Service Layer**  
-  Contains business logic and orchestrates payment operations.
+  Orchestrates payment flows and enforces business rules.
 
 - **Domain Layer**  
-  Represents core concepts such as `Payment` and `PaymentStatus`.
+  Encapsulates payment rules and valid state transitions.
 
-- **Persistence Layer**  
-  Uses Spring Data JPA and Hibernate.
+- **Integration Layer (Gateway Pattern)**  
+  Handles communication with external Payment Service Providers (PSPs).
 
-External payment providers are **not coupled** to the domain and will be integrated later through a dedicated integration layer.
+External providers are accessed exclusively through a **PaymentGateway interface**, ensuring complete decoupling from the domain.
 
 ---
 
@@ -48,29 +47,70 @@ External payment providers are **not coupled** to the domain and will be integra
 
 ### Payment
 
-Represents a **payment intent**, not just a transaction.
+A `Payment` represents a **payment intent**, not just a transaction.
 
-Attributes:
+**Core fields:**
 - `id` (UUID)
 - `amount`
-- `method`
+- `method` (PIX, etc.)
 - `status`
 - `createdAt`
 
-### Payment Status
+### Payment Status Lifecycle
 
-The payment lifecycle is represented by an enum:
+The domain models real payment behavior:
 
-- `CREATED`
-- `PAID`
-- `FAILED`
-- `CANCELLED`
+- `CREATED` – Payment intent created internally
+- `PENDING` – Payment created in PSP, awaiting confirmation (PIX)
+- `PAID` – Payment successfully completed
+- `FAILED` – Payment failed or rejected
+- `CANCELLED` – Payment cancelled before completion
 
-This ensures strong typing and valid state transitions.
+This lifecycle accurately represents **asynchronous payment flows**.
 
 ---
 
-## 🔗 API Endpoints
+## 🔌 Payment Gateway Abstraction
+
+The project uses a **Gateway / Adapter pattern** for PSP integration.
+
+### PaymentGateway (Port)
+
+Defines the contract used by the domain:
+
+- `processPayment(PaymentRequest request)`
+
+### Implementations
+
+- **FakePaymentGateway** (`dev` profile)  
+  Simulates external providers for development and testing.
+
+- **MercadoPagoPaymentGateway** (`sandbox` profile)  
+  Real integration using Mercado Pago REST API.
+
+Gateway selection is controlled via **Spring Profiles**, not code changes.
+
+---
+
+## 🌐 Mercado Pago Integration (Sandbox)
+
+The system integrates with **Mercado Pago Checkout Transparente** using **pure REST calls**:
+
+- No SDKs inside the domain
+- Secure token handling via environment variables
+- Required headers handled correctly:
+  - `Authorization: Bearer <ACCESS_TOKEN>`
+  - `X-Idempotency-Key`
+
+### PIX Flow Behavior
+
+- Payment creation returns `pending`
+- Final confirmation occurs asynchronously (via webhook)
+- Domain status correctly reflects real-world behavior
+
+---
+
+## 🔗 REST API Endpoints
 
 ### Create Payment
 
@@ -78,64 +118,79 @@ This ensures strong typing and valid state transitions.
 POST /payments
 ```
 
-**Request**
 ```json
 {
-  "amount": 100.00,
+  "amount": 10.00,
   "method": "PIX"
-}
-```
-
-**Response**
-```json
-{
-  "paymentId": "uuid",
-  "status": "CREATED"
 }
 ```
 
 ---
 
-### Get Payment by ID
+### Pay Payment
+
+```
+POST /payments/{paymentId}/pay
+```
+
+Initial response for PIX:
+
+```json
+{
+  "status": "PENDING"
+}
+```
+
+---
+
+### Get Payment
 
 ```
 GET /payments/{paymentId}
 ```
 
-**Response**
-```json
-{
-  "id": "uuid",
-  "amount": 100.00,
-  "method": "PIX",
-  "status": "CREATED",
-  "createdAt": "2026-04-08T15:10:37"
-}
-```
-
 ---
 
-## 🚨 Error Handling
+## ⚠️ Error Handling
 
-The API uses **custom domain exceptions** and centralized error handling via `@RestControllerAdvice`.
+The API follows HTTP semantics:
 
-Example:
-- If a payment is not found, the API returns:
+- `404 Not Found` – Payment does not exist
+- `409 Conflict` – Invalid state transition
+- Clear domain-level exceptions
 
-```
-HTTP 404 Not Found
-```
-
-This keeps controllers clean and ensures correct REST semantics.
+All errors are handled centrally using `@RestControllerAdvice`.
 
 ---
 
 ## 🗄️ Persistence
 
-- Spring Data JPA with Hibernate
-- UUIDs are used as identifiers
-- Designed for easy migration to production databases (PostgreSQL / MySQL)
-- H2 is used **only** for local development scaffolding
+- Spring Data JPA
+- Hibernate ORM
+- UUID-based identifiers
+- Designed for easy migration to production databases (PostgreSQL/MySQL)
+- H2 used only for local development
+
+---
+
+## ✅ Current Status
+
+- ✅ Real Mercado Pago sandbox integration
+- ✅ Asynchronous PIX flow modeled correctly
+- ✅ Gateway abstraction in place
+- ✅ Idempotent payment creation
+- ✅ Production-grade error handling
+- ✅ Domain-driven payment lifecycle
+
+---
+
+## 🔮 Next Steps
+
+- Webhook handling for PIX confirmation
+- Persist external PSP references
+- Observability and metrics
+- Production environment setup
+- Security hardening
 
 ---
 
@@ -147,26 +202,8 @@ This keeps controllers clean and ensures correct REST semantics.
 - Spring Data JPA
 - Hibernate
 - Maven
+- Mercado Pago REST API
 
 ---
 
-## ✅ Current Status
-
-- Core REST API implemented
-- Payment domain modeled
-- Persistence working
-- Error handling implemented
-
-The project is actively evolving.
-
----
-
-## 🔮 Next Steps
-
-- Payment state transitions (pay / cancel)
-- Async payment flow
-- Integration with a real Payment Service Provider (PSP)
-- Webhook handling
-- Production database setup
-
-**Developed by : Willian Wu**
+**Developed by Willian Wu**
