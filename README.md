@@ -1,176 +1,110 @@
 # Payment Service
 
-## Overview
+## Idea
 
-This project is a **backend payment service** designed to model **real-world asynchronous payment flows**, with a special focus on **PIX** and **webhook-based confirmation**. It reflects how payments work in production systems, where approval is **not immediate** and must be confirmed through external events.
+This project is a **backend payment service** created to study and demonstrate how **real payment systems work**, especially when payments are **not confirmed immediately**, such as with **PIX**.
 
-The project was built with an emphasis on **domain correctness**, **event-driven thinking**, and **clean separation between business rules and external providers**.
-
----
-
-## Key Concepts
-
-- Payments are **stateful and asynchronous**
-- The backend must **not assume approval** at creation time
-- External providers (PSPs) notify state changes via **webhooks**
-- The system reacts to events and applies **idempotent state transitions**
+The main goal is **not** to simulate a perfect payment, but to model the **correct backend behavior** for payments that depend on **external confirmation**.
 
 ---
 
-## Domain Model
+## How It Works
 
-### Payment States
+### 1. Create a payment
 
-The `Payment` entity moves explicitly through the following states:
+A payment is created in the system and stored in the database.
 
-- `CREATED` – payment created internally
-- `PENDING` – payment sent to provider, awaiting confirmation
-- `PAID` – payment approved by provider
-- `FAILED` – payment rejected or failed
-- `CANCELLED` – payment cancelled by user or system
+At this moment, the payment **is not paid** — it only exists internally.
 
-State transitions are handled **only by the domain**, never directly by controllers or external integrations.
+**Initial state:**
+- `CREATED`
 
 ---
 
-## Architecture
+### 2. Start the payment
 
-The service follows a clean and decoupled architecture:
+When the client initiates the payment, the backend sends the request to an external provider (PSP).
 
-```
-Controller
-  ↓
-Service (Domain Logic)
-  ↓
-PaymentGateway (Interface)
-  ↓
-External Provider (or Fake)
-```
+Because PIX is **asynchronous**, the system does **not assume approval**.
 
-### Key Architectural Decisions
-
-- **Gateway pattern** to isolate PSP integration
-- **Webhook-driven confirmation**, treated as external events
-- **PostgreSQL** as the primary persistent store
-- **No in-memory assumptions** (no H2, no volatile state)
+**State change:**
+- `CREATED → PENDING`
 
 ---
 
-## Payment Flow
+### 3. Await confirmation (asynchronous)
 
-### 1. Create Payment
+The payment provider processes the payment independently.
 
-```
-POST /payments
-```
+When something changes, the provider **notifies the backend via webhook**.
 
-- Persists a new payment
-- Initial state: `CREATED`
-
-### 2. Initiate Payment
-
-```
-POST /payments/{paymentId}/pay
-```
-
-- Sends payment to provider
-- State becomes `PENDING`
-
-### 3. Await Confirmation (Asynchronous)
-
-- Provider processes the payment
-- Provider sends an event to the webhook endpoint
-
-### 4. Webhook Handling
-
-```
-POST /webhooks/mercadopago
-```
-
-- Webhook receives an event
-- Backend **queries the provider API** for the authoritative state
-- Domain updates payment state accordingly
-
-The webhook is treated as **a notification, not a source of truth**.
+Important:
+- The webhook **does not decide anything**
+- It only signals that **something changed**
 
 ---
 
-## Webhook Validation
+### 4. Webhook processing
 
-Due to **sandbox limitations of PIX**, automatic approval events are not always emitted.
+When the webhook is received:
 
-To address this during development:
+1. The backend accepts the event
+2. The backend queries the provider API
+3. The provider response is treated as the **source of truth**
+4. The domain applies the correct state transition
 
-- The webhook handler is fully implemented and validated structurally
-- The backend safely receives events, processes payloads, and reacts correctly
-- Errors from external providers never break the system
+**Possible final states:**
+- `PAID`
+- `FAILED`
 
-This mirrors **real backend practice**, where infrastructure and behavior are tested independently.
+---
+
+## State Model
+
+The payment lifecycle is explicit and controlled only by the domain:
+
+- `CREATED`
+- `PENDING`
+- `PAID`
+- `FAILED`
+- `CANCELLED`
+
+This avoids implicit or unsafe transitions and mirrors real financial systems.
 
 ---
 
 ## Frontend Simulator
 
-A **static frontend** is included solely for visualization and demonstration purposes.
+A **simple static frontend** is included only to:
 
-The frontend:
+- Call backend endpoints
+- Visualize payment states
+- Demonstrate the flow
 
-- Calls backend endpoints
-- Displays payment states
-- Allows controlled webhook simulation
+The frontend **never makes payment decisions**.
 
-**The frontend does not make payment decisions.**
-All state transitions remain in the backend domain.
-
----
-
-## Persistence
-
-- Database: **PostgreSQL**
-- ORM: **JPA / Hibernate**
-- Enums persisted as `VARCHAR`
-- Schema managed explicitly (no auto-drop for production)
+All rules and transitions live in the backend.
 
 ---
 
-## Technology Stack
+## Why This Project
 
-- Java
-- Spring Boot
-- PostgreSQL
-- JPA / Hibernate
-- Mercado Pago API (Sandbox)
-- Webhooks
-- Static HTML frontend for demo
+This project focuses on:
 
----
-
-## Why This Project Matters
-
-This project focuses on **correct payment design**, not happy-path demos.
-
-It demonstrates:
-
-- Understanding of **eventual consistency**
-- Proper **asynchronous workflow modeling**
-- Realistic **PSP integration patterns**
-- Defensive webhook handling
+- Correct modeling of **asynchronous workflows**
+- Understanding **webhook-based systems**
+- Separation between **business logic** and **external providers**
+- Realistic backend behavior instead of happy-path simulations
 
 ---
 
-## Disclaimer
+## Notes
 
-This project is intended for **learning and demonstration purposes**.
-
-Actual payment processing in production environments requires:
-
-- Production credentials
-- Secure deployment
-- HTTPS endpoints
-- Provider validation and compliance
+- Sandbox environments have limitations and may not fully replicate real payment approvals
+- The project is designed to be **honest and realistic**, not visually misleading
 
 ---
 
-## Author
+## Purpose
 
-**Willian Wu**
+Educational project focused on backend architecture, payments, and event-driven design.
