@@ -1,209 +1,176 @@
 # Payment Service
 
-## 📌 Overview
+## Overview
 
-**Payment Service** is a backend **Payment Orchestration Microservice** built with **Java and Spring Boot**, designed to model real-world payment flows used in production systems.  
-The service focuses on **clean architecture, proper domain modeling, and real PSP integration**, rather than simple SDK-based demos.
+This project is a **backend payment service** designed to model **real-world asynchronous payment flows**, with a special focus on **PIX** and **webhook-based confirmation**. It reflects how payments work in production systems, where approval is **not immediate** and must be confirmed through external events.
 
-The project currently integrates with **Mercado Pago (Sandbox)** using **direct REST API calls**, following best practices used in fintech and large-scale systems.
-
----
-
-## 🎯 Project Goals
-
-- Model real-world payment lifecycles (synchronous and asynchronous)
-- Build a production-ready REST API
-- Apply best practices in:
-  - Domain-driven design
-  - Payment state management
-  - Error handling
-  - External API integration
-- Avoid tight coupling with payment providers
-- Prepare the system for real production environments
+The project was built with an emphasis on **domain correctness**, **event-driven thinking**, and **clean separation between business rules and external providers**.
 
 ---
 
-## 🧱 Architecture Overview
+## Key Concepts
 
-The service follows a **clean, layered architecture**:
-
-- **Controller Layer**  
-  Exposes REST endpoints and handles HTTP concerns.
-
-- **Service Layer**  
-  Orchestrates payment flows and enforces business rules.
-
-- **Domain Layer**  
-  Encapsulates payment rules and valid state transitions.
-
-- **Integration Layer (Gateway Pattern)**  
-  Handles communication with external Payment Service Providers (PSPs).
-
-External providers are accessed exclusively through a **PaymentGateway interface**, ensuring complete decoupling from the domain.
+- Payments are **stateful and asynchronous**
+- The backend must **not assume approval** at creation time
+- External providers (PSPs) notify state changes via **webhooks**
+- The system reacts to events and applies **idempotent state transitions**
 
 ---
 
-## 💳 Payment Domain Model
+## Domain Model
 
-### Payment
+### Payment States
 
-A `Payment` represents a **payment intent**, not just a transaction.
+The `Payment` entity moves explicitly through the following states:
 
-**Core fields:**
-- `id` (UUID)
-- `amount`
-- `method` (PIX, etc.)
-- `status`
-- `createdAt`
+- `CREATED` – payment created internally
+- `PENDING` – payment sent to provider, awaiting confirmation
+- `PAID` – payment approved by provider
+- `FAILED` – payment rejected or failed
+- `CANCELLED` – payment cancelled by user or system
 
-### Payment Status Lifecycle
-
-The domain models real payment behavior:
-
-- `CREATED` – Payment intent created internally
-- `PENDING` – Payment created in PSP, awaiting confirmation (PIX)
-- `PAID` – Payment successfully completed
-- `FAILED` – Payment failed or rejected
-- `CANCELLED` – Payment cancelled before completion
-
-This lifecycle accurately represents **asynchronous payment flows**.
+State transitions are handled **only by the domain**, never directly by controllers or external integrations.
 
 ---
 
-## 🔌 Payment Gateway Abstraction
+## Architecture
 
-The project uses a **Gateway / Adapter pattern** for PSP integration.
+The service follows a clean and decoupled architecture:
 
-### PaymentGateway (Port)
+```
+Controller
+  ↓
+Service (Domain Logic)
+  ↓
+PaymentGateway (Interface)
+  ↓
+External Provider (or Fake)
+```
 
-Defines the contract used by the domain:
+### Key Architectural Decisions
 
-- `processPayment(PaymentRequest request)`
-
-### Implementations
-
-- **FakePaymentGateway** (`dev` profile)  
-  Simulates external providers for development and testing.
-
-- **MercadoPagoPaymentGateway** (`sandbox` profile)  
-  Real integration using Mercado Pago REST API.
-
-Gateway selection is controlled via **Spring Profiles**, not code changes.
-
----
-
-## 🌐 Mercado Pago Integration (Sandbox)
-
-The system integrates with **Mercado Pago Checkout Transparente** using **pure REST calls**:
-
-- No SDKs inside the domain
-- Secure token handling via environment variables
-- Required headers handled correctly:
-  - `Authorization: Bearer <ACCESS_TOKEN>`
-  - `X-Idempotency-Key`
-
-### PIX Flow Behavior
-
-- Payment creation returns `pending`
-- Final confirmation occurs asynchronously (via webhook)
-- Domain status correctly reflects real-world behavior
+- **Gateway pattern** to isolate PSP integration
+- **Webhook-driven confirmation**, treated as external events
+- **PostgreSQL** as the primary persistent store
+- **No in-memory assumptions** (no H2, no volatile state)
 
 ---
 
-## 🔗 REST API Endpoints
+## Payment Flow
 
-### Create Payment
+### 1. Create Payment
 
 ```
 POST /payments
 ```
 
-```json
-{
-  "amount": 10.00,
-  "method": "PIX"
-}
-```
+- Persists a new payment
+- Initial state: `CREATED`
 
----
-
-### Pay Payment
+### 2. Initiate Payment
 
 ```
 POST /payments/{paymentId}/pay
 ```
 
-Initial response for PIX:
+- Sends payment to provider
+- State becomes `PENDING`
 
-```json
-{
-  "status": "PENDING"
-}
-```
+### 3. Await Confirmation (Asynchronous)
 
----
+- Provider processes the payment
+- Provider sends an event to the webhook endpoint
 
-### Get Payment
+### 4. Webhook Handling
 
 ```
-GET /payments/{paymentId}
+POST /webhooks/mercadopago
 ```
 
----
+- Webhook receives an event
+- Backend **queries the provider API** for the authoritative state
+- Domain updates payment state accordingly
 
-## ⚠️ Error Handling
-
-The API follows HTTP semantics:
-
-- `404 Not Found` – Payment does not exist
-- `409 Conflict` – Invalid state transition
-- Clear domain-level exceptions
-
-All errors are handled centrally using `@RestControllerAdvice`.
+The webhook is treated as **a notification, not a source of truth**.
 
 ---
 
-## 🗄️ Persistence
+## Webhook Validation
 
-- Spring Data JPA
-- Hibernate ORM
-- UUID-based identifiers
-- Designed for easy migration to production databases (PostgreSQL/MySQL)
-- H2 used only for local development
+Due to **sandbox limitations of PIX**, automatic approval events are not always emitted.
 
----
+To address this during development:
 
-## ✅ Current Status
+- The webhook handler is fully implemented and validated structurally
+- The backend safely receives events, processes payloads, and reacts correctly
+- Errors from external providers never break the system
 
-- ✅ Real Mercado Pago sandbox integration
-- ✅ Asynchronous PIX flow modeled correctly
-- ✅ Gateway abstraction in place
-- ✅ Idempotent payment creation
-- ✅ Production-grade error handling
-- ✅ Domain-driven payment lifecycle
+This mirrors **real backend practice**, where infrastructure and behavior are tested independently.
 
 ---
 
-## 🔮 Next Steps
+## Frontend Simulator
 
-- Webhook handling for PIX confirmation
-- Persist external PSP references
-- Observability and metrics
-- Production environment setup
-- Security hardening
+A **static frontend** is included solely for visualization and demonstration purposes.
+
+The frontend:
+
+- Calls backend endpoints
+- Displays payment states
+- Allows controlled webhook simulation
+
+**The frontend does not make payment decisions.**
+All state transitions remain in the backend domain.
 
 ---
 
-## 🛠️ Tech Stack
+## Persistence
+
+- Database: **PostgreSQL**
+- ORM: **JPA / Hibernate**
+- Enums persisted as `VARCHAR`
+- Schema managed explicitly (no auto-drop for production)
+
+---
+
+## Technology Stack
 
 - Java
 - Spring Boot
-- Spring Web
-- Spring Data JPA
-- Hibernate
-- Maven
-- Mercado Pago REST API
+- PostgreSQL
+- JPA / Hibernate
+- Mercado Pago API (Sandbox)
+- Webhooks
+- Static HTML frontend for demo
 
 ---
 
-**Developed by Willian Wu**
+## Why This Project Matters
+
+This project focuses on **correct payment design**, not happy-path demos.
+
+It demonstrates:
+
+- Understanding of **eventual consistency**
+- Proper **asynchronous workflow modeling**
+- Realistic **PSP integration patterns**
+- Defensive webhook handling
+
+---
+
+## Disclaimer
+
+This project is intended for **learning and demonstration purposes**.
+
+Actual payment processing in production environments requires:
+
+- Production credentials
+- Secure deployment
+- HTTPS endpoints
+- Provider validation and compliance
+
+---
+
+## Author
+
+**Willian Wu**
