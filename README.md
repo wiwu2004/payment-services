@@ -4,7 +4,7 @@
 
 This project is a **backend payment service** created to study and demonstrate how **real payment systems work**, especially when payments are **not confirmed immediately**, such as with **PIX**.
 
-The main goal is **not** to simulate a perfect payment, but to model the **correct backend behavior** for payments that depend on **external confirmation**.
+The focus is not on simulating "instant payments", but on modeling the **correct backend behavior** for systems that depend on **external, asynchronous confirmation**.
 
 ---
 
@@ -12,9 +12,7 @@ The main goal is **not** to simulate a perfect payment, but to model the **corre
 
 ### 1. Create a payment
 
-A payment is created in the system and stored in the database.
-
-At this moment, the payment **is not paid** — it only exists internally.
+A payment is created and persisted in the system. At this point, the payment is **not paid** — it only exists internally.
 
 **Initial state:**
 - `CREATED`
@@ -23,7 +21,7 @@ At this moment, the payment **is not paid** — it only exists internally.
 
 ### 2. Start the payment
 
-When the client initiates the payment, the backend sends the request to an external provider (PSP).
+When the payment is initiated, the backend sends the request to an external provider (PSP).
 
 Because PIX is **asynchronous**, the system does **not assume approval**.
 
@@ -36,10 +34,10 @@ Because PIX is **asynchronous**, the system does **not assume approval**.
 
 The payment provider processes the payment independently.
 
-When something changes, the provider **notifies the backend via webhook**.
+When a change occurs, the provider **notifies the backend via webhook**.
 
-Important:
-- The webhook **does not decide anything**
+Important details:
+- The webhook **does not decide the result**
 - It only signals that **something changed**
 
 ---
@@ -48,7 +46,7 @@ Important:
 
 When the webhook is received:
 
-1. The backend accepts the event
+1. The backend receives the event
 2. The backend queries the provider API
 3. The provider response is treated as the **source of truth**
 4. The domain applies the correct state transition
@@ -61,7 +59,7 @@ When the webhook is received:
 
 ## State Model
 
-The payment lifecycle is explicit and controlled only by the domain:
+The payment lifecycle is explicit and controlled entirely by the domain:
 
 - `CREATED`
 - `PENDING`
@@ -69,7 +67,7 @@ The payment lifecycle is explicit and controlled only by the domain:
 - `FAILED`
 - `CANCELLED`
 
-This avoids implicit or unsafe transitions and mirrors real financial systems.
+This avoids implicit transitions and mirrors real financial systems.
 
 ---
 
@@ -82,29 +80,28 @@ A **simple static frontend** is included only to:
 - Demonstrate the flow
 
 The frontend **never makes payment decisions**.
-
-All rules and transitions live in the backend.
-
----
-
-## Why This Project
-
-This project focuses on:
-
-- Correct modeling of **asynchronous workflows**
-- Understanding **webhook-based systems**
-- Separation between **business logic** and **external providers**
-- Realistic backend behavior instead of happy-path simulations
+All rules and transitions remain in the backend.
 
 ---
 
-## Notes
+## Technologies Used
 
-- Sandbox environments have limitations and may not fully replicate real payment approvals
-- The project is designed to be **honest and realistic**, not visually misleading
+- Java
+- Spring Boot
+- PostgreSQL
+- JPA / Hibernate
+- Mercado Pago API (Sandbox)
+- Webhooks
+- Static HTML / JavaScript (demo frontend)
 
 ---
 
 ## Purpose
 
 Educational project focused on backend architecture, payments, and event-driven design.
+
+---
+
+## Author
+
+Developed by **Willian Wu**
