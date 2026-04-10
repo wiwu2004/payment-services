@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Payment Simulator — wiwu</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0d0f12;
+    --bg2: #141619;
+    --bg3: #1c1f24;
+    --border: #2a2d33;
+    --border2: #373b42;
+    --text: #e8eaed;
+    --text2: #9aa0aa;
+    --text3: #555c66;
+    --green: #3ecf6e;
+    --green-dim: #1a3d2a;
+    --green-text: #3ecf6e;
+    --red: #f05050;
+    --red-dim: #3a1a1a;
+    --red-text: #f05050;
+    --blue: #4ea8de;
+    --blue-dim: #1a2a3a;
+    --amber: #f0a840;
+    --amber-dim: #3a2a10;
+    --accent: #4ea8de;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --radius: 6px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── Layout ── */
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-logo {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-logo .logo-name {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: .04em;
+  }
+  .sidebar-logo .logo-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 2px;
+  }
+
+  .sidebar-nav { padding: 12px 0; flex: 1; }
+
+  .nav-section {
+    padding: 4px 16px 4px;
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text3);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    transition: color .15s, background .15s;
+    font-family: var(--sans);
+  }
+  .nav-item:hover { color: var(--text); background: var(--bg3); }
+  .nav-item.active { color: var(--accent); background: rgba(78,168,222,.08); }
+  .nav-item .icon { width: 14px; font-size: 12px; opacity: .7; flex-shrink: 0; }
+
+  .sidebar-bottom {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .base-url-wrap label {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text3);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 5px;
+  }
+  .base-url-wrap input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .base-url-wrap input:focus { border-color: var(--accent); }
+
+  /* ── Main ── */
+  .main { flex: 1; min-width: 0; overflow-y: auto; }
+
+  .main-header {
+    padding: 28px 32px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  .main-header h1 {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text);
+    font-family: var(--mono);
+  }
+  .main-header p {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 3px;
+    margin-bottom: 20px;
+  }
+
+  /* ── Pages ── */
+  .page { display: none; padding: 28px 32px; }
+  .page.active { display: block; }
+
+  /* ── Metrics ── */
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+  .metric-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .metric-card .m-val {
+    font-size: 28px;
+    font-weight: 300;
+    font-family: var(--mono);
+    color: var(--text);
+  }
+  .metric-card .m-val.green { color: var(--green); }
+  .metric-card .m-val.red { color: var(--red); }
+  .metric-card .m-lbl {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 4px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+  }
+  .card-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-header h2 { font-size: 13px; font-weight: 500; font-family: var(--mono); color: var(--text); }
+  .card-header .method-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .method-GET { background: rgba(62,207,110,.12); color: var(--green); }
+  .method-POST { background: rgba(78,168,222,.12); color: var(--blue); }
+  .card-body { padding: 20px; }
+
+  /* ── Form ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-grid.single { grid-template-columns: 1fr; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .field input, .field select, .field textarea {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    font-size: 13px;
+    color: var(--text);
+    font-family: var(--sans);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; font-family: var(--mono); font-size: 12px; }
+  .field select option { background: var(--bg3); }
+
+  /* ── Buttons ── */
+  .btn-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .btn {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-family: var(--mono);
+    border-radius: var(--radius);
+    cursor: pointer;
+    border: 1px solid;
+    transition: all .15s;
+    letter-spacing: .02em;
+  }
+  .btn-primary { background: rgba(78,168,222,.12); border-color: var(--blue); color: var(--blue); }
+  .btn-primary:hover { background: rgba(78,168,222,.22); }
+  .btn-success { background: rgba(62,207,110,.1); border-color: var(--green); color: var(--green); }
+  .btn-success:hover { background: rgba(62,207,110,.2); }
+  .btn-danger { background: rgba(240,80,80,.1); border-color: var(--red); color: var(--red); }
+  .btn-danger:hover { background: rgba(240,80,80,.2); }
+  .btn-ghost { background: transparent; border-color: var(--border2); color: var(--text2); }
+  .btn-ghost:hover { background: var(--bg3); color: var(--text); }
+
+  /* ── Response box ── */
+  .response-box {
+    margin-top: 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: none;
+  }
+  .response-box.show { display: block; }
+  .response-header {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .response-header .status-ok { color: var(--green); }
+  .response-header .status-err { color: var(--red); }
+  .response-header .status-label { color: var(--text3); }
+  .response-body {
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 240px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+
+  /* ── Payment table ── */
+  .payments-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .payments-table th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+  .payments-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .payments-table tr:last-child td { border-bottom: none; }
+  .payments-table tr:hover td { background: rgba(255,255,255,.02); }
+  .pay-id { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+  .pay-desc { color: var(--text); }
+  .pay-amount { font-family: var(--mono); font-weight: 500; color: var(--text); }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-family: var(--mono);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .badge-pending { background: var(--amber-dim); color: var(--amber); }
+  .badge-paid, .badge-approved, .badge-approved_by_provider { background: var(--green-dim); color: var(--green); }
+  .badge-cancelled, .badge-canceled, .badge-rejected { background: var(--red-dim); color: var(--red); }
+  .badge-processing { background: var(--blue-dim); color: var(--blue); }
+
+  /* ── Log ── */
+  .log-wrap { max-height: 260px; overflow-y: auto; }
+  .log-entry {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-time { color: var(--text3); min-width: 72px; }
+  .log-method { min-width: 36px; font-weight: 500; }
+  .log-method.GET { color: var(--green); }
+  .log-method.POST { color: var(--blue); }
+  .log-path { color: var(--text2); flex: 1; }
+  .log-code.ok { color: var(--green); }
+  .log-code.err { color: var(--red); }
+
+  .empty-state {
+    padding: 36px;
+    text-align: center;
+    color: var(--text3);
+    font-size: 12px;
+    font-family: var(--mono);
+  }
+
+  /* ── Table actions ── */
+  .tbl-actions { display: flex; gap: 6px; }
+  .tbl-btn {
+    padding: 4px 10px;
+    font-size: 10px;
+    font-family: var(--mono);
+    border-radius: 3px;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all .15s;
+  }
+  .tbl-btn-pay { background: rgba(62,207,110,.08); border-color: var(--green); color: var(--green); }
+  .tbl-btn-pay:hover { background: rgba(62,207,110,.18); }
+  .tbl-btn-cancel { background: rgba(240,80,80,.08); border-color: var(--red); color: var(--red); }
+  .tbl-btn-cancel:hover { background: rgba(240,80,80,.18); }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── Notification ── */
+  #notif {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    z-index: 999;
+    max-width: 320px;
+  }
+  #notif.show { opacity: 1; transform: translateY(0); }
+  #notif.ok { border-left: 3px solid var(--green); }
+  #notif.err { border-left: 3px solid var(--red); }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-name">/ payment-sim</div>
+      <div class="logo-sub">wiwu payment service</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">visão geral</div>
+      <button class="nav-item active" onclick="goTo('dashboard', this)">
+        <span class="icon">◈</span> Dashboard
+      </button>
+      <div class="nav-section">endpoints</div>
+      <button class="nav-item" onclick="goTo('create', this)">
+        <span class="icon">+</span> Criar pagamento
+      </button>
+      <button class="nav-item" onclick="goTo('consult', this)">
+        <span class="icon">⊙</span> Consultar
+      </button>
+      <button class="nav-item" onclick="goTo('actions', this)">
+        <span class="icon">⚡</span> Pay / Cancel
+      </button>
+      <div class="nav-section">integrações</div>
+      <button class="nav-item" onclick="goTo('webhook', this)">
+        <span class="icon">↩</span> Webhook MP
+      </button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="base-url-wrap">
+        <label>Base URL</label>
+        <input type="text" id="baseUrl" value="http://localhost:8080" />
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="main-header">
+        <h1>Dashboard</h1>
+        <p>Sessão atual — os dados são reiniciados ao recarregar a página</p>
+      </div>
+      <div style="padding:28px 32px">
+        <div class="metrics">
+          <div class="metric-card">
+            <div class="m-val" id="m-total">0</div>
+            <div class="m-lbl">Total criados</div>
+          </div>
+          <div class="metric-card">
+            <div class="m-val green" id="m-paid">0</div>
+            <div class="m-lbl">Pagos</div>
+          </div>
+          <div class="metric-card">
+            <div class="m-val red" id="m-cancelled">0</div>
+            <div class="m-lbl">Cancelados</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>Pagamentos da sessão</h2></div>
+          <div id="payments-table-wrap">
+            <div class="empty-state">nenhum pagamento criado ainda</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>Log de requisições</h2></div>
+          <div class="card-body" style="padding:0">
+            <div class="log-wrap" id="log-list">
+              <div class="empty-state">aguardando ações...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CREATE -->
+    <div id="page-create" class="page">
+      <div class="main-header">
+        <h1>Criar pagamento</h1>
+        <p>POST /payments</p>
+      </div>
+      <div style="padding:28px 32px">
+        <div class="card">
+          <div class="card-header">
+            <h2>POST /payments</h2>
+            <span class="method-badge method-POST">POST</span>
+          </div>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="field">
+                <label>Descrição</label>
+                <input type="text" id="c-desc" placeholder="ex: Pedido #001" />
+              </div>
+              <div class="field">
+                <label>Valor (R$)</label>
+                <input type="number" id="c-amount" placeholder="150.00" step="0.01" min="0" />
+              </div>
+              <div class="field">
+                <label>Email do pagador</label>
+                <input type="email" id="c-email" placeholder="email@exemplo.com" />
+              </div>
+              <div class="field">
+                <label>Método de pagamento</label>
+                <select id="c-method">
+                  <option value="PIX">PIX</option>
+                  <option value="CREDIT_CARD">Cartão de crédito</option>
+                  <option value="BOLETO">Boleto</option>
+                </select>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="createPayment()">Enviar requisição</button>
+              <button class="btn btn-ghost" onclick="clearCreate()">Limpar</button>
+            </div>
+            <div class="response-box" id="res-create">
+              <div class="response-header">
+                <span class="status-label">Response</span>
+                <span id="res-create-status"></span>
+              </div>
+              <div class="response-body" id="res-create-body"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSULT -->
+    <div id="page-consult" class="page">
+      <div class="main-header">
+        <h1>Consultar pagamento</h1>
+        <p>GET /payments/{paymentId}</p>
+      </div>
+      <div style="padding:28px 32px">
+        <div class="card">
+          <div class="card-header">
+            <h2>GET /payments/{paymentId}</h2>
+            <span class="method-badge method-GET">GET</span>
+          </div>
+          <div class="card-body">
+            <div class="form-grid single">
+              <div class="field">
+                <label>Payment ID</label>
+                <input type="text" id="q-id" placeholder="ex: pay_abc123" />
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="getPayment()">Buscar</button>
+            </div>
+            <div class="response-box" id="res-consult">
+              <div class="response-header">
+                <span class="status-label">Response</span>
+                <span id="res-consult-status"></span>
+              </div>
+              <div class="response-body" id="res-consult-body"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div id="page-actions" class="page">
+      <div class="main-header">
+        <h1>Pay / Cancel</h1>
+        <p>POST /payments/{paymentId}/pay &nbsp;·&nbsp; POST /payments/{paymentId}/cancel</p>
+      </div>
+      <div style="padding:28px 32px">
+        <div class="card">
+          <div class="card-header">
+            <h2>POST /payments/{paymentId}/pay</h2>
+            <span class="method-badge method-POST">POST</span>
+          </div>
+          <div class="card-body">
+            <div class="form-grid single">
+              <div class="field">
+                <label>Payment ID</label>
+                <input type="text" id="pay-id" placeholder="ex: pay_abc123" />
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-success" onclick="payPayment()">Confirmar pagamento</button>
+            </div>
+            <div class="response-box" id="res-pay">
+              <div class="response-header">
+                <span class="status-label">Response</span>
+                <span id="res-pay-status"></span>
+              </div>
+              <div class="response-body" id="res-pay-body"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>POST /payments/{paymentId}/cancel</h2>
+            <span class="method-badge method-POST">POST</span>
+          </div>
+          <div class="card-body">
+            <div class="form-grid single">
+              <div class="field">
+                <label>Payment ID</label>
+                <input type="text" id="cancel-id" placeholder="ex: pay_abc123" />
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-danger" onclick="cancelPayment()">Cancelar pagamento</button>
+            </div>
+            <div class="response-box" id="res-cancel">
+              <div class="response-header">
+                <span class="status-label">Response</span>
+                <span id="res-cancel-status"></span>
+              </div>
+              <div class="response-body" id="res-cancel-body"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WEBHOOK -->
+    <div id="page-webhook" class="page">
+      <div class="main-header">
+        <h1>Webhook Mercado Pago</h1>
+        <p>POST /webhooks/mercadopago</p>
+      </div>
+      <div style="padding:28px 32px">
+        <div class="card">
+          <div class="card-header">
+            <h2>POST /webhooks/mercadopago</h2>
+            <span class="method-badge method-POST">POST</span>
+          </div>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="field">
+                <label>Type</label>
+                <select id="w-type" onchange="buildPayload()">
+                  <option value="payment">payment</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Action</label>
+                <select id="w-action" onchange="buildPayload()">
+                  <option value="payment.updated">payment.updated</option>
+                  <option value="payment.created">payment.created</option>
+                </select>
+              </div>
+              <div class="field" style="grid-column:1/-1">
+                <label>ID do pagamento (Mercado Pago)</label>
+                <input type="text" id="w-mpid" placeholder="ex: 12345678" oninput="buildPayload()" />
+              </div>
+              <div class="field" style="grid-column:1/-1">
+                <label>Payload JSON (editável)</label>
+                <textarea id="w-payload" rows="7"></textarea>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ghost" onclick="buildPayload()">Regenerar payload</button>
+              <button class="btn btn-primary" onclick="sendWebhook()">Enviar webhook</button>
+            </div>
+            <div class="response-box" id="res-webhook">
+              <div class="response-header">
+                <span class="status-label">Response</span>
+                <span id="res-webhook-status"></span>
+              </div>
+              <div class="response-body" id="res-webhook-body"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="notif"></div>
+
+<script>
+const state = { payments: [], logs: [] };
+
+function base() {
+  return (document.getElementById('baseUrl').value || 'http://localhost:8080').replace(/\/$/, '');
+}
+
+function goTo(page, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  btn.classList.add('active');
+}
+
+function notify(msg, ok) {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.className = 'show ' + (ok ? 'ok' : 'err');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.className = ''; }, 3000);
+}
+
+function addLog(method, path, status, ok) {
+  const t = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  state.logs.unshift({ t, method, path, status, ok });
+  renderLog();
+}
+
+function renderLog() {
+  const el = document.getElementById('log-list');
+  if (!state.logs.length) { el.innerHTML = '<div class="empty-state">aguardando ações...</div>'; return; }
+  el.innerHTML = state.logs.slice(0, 30).map(l =>
+    `<div class="log-entry">
+      <span class="log-time">${l.t}</span>
+      <span class="log-method ${l.method}">${l.method}</span>
+      <span class="log-path">${l.path}</span>
+      <span class="log-code ${l.ok ? 'ok' : 'err'}">${l.status}</span>
+    </div>`
+  ).join('');
+}
+
+function updateMetrics() {
+  document.getElementById('m-total').textContent = state.payments.length;
+  const paid = state.payments.filter(p => ['paid', 'approved', 'approved_by_provider'].includes((p.status || '').toLowerCase())).length;
+  const cancelled = state.payments.filter(p => ['cancelled', 'canceled', 'rejected'].includes((p.status || '').toLowerCase())).length;
+  document.getElementById('m-paid').textContent = paid;
+  document.getElementById('m-cancelled').textContent = cancelled;
+}
+
+function renderPayments() {
+  const wrap = document.getElementById('payments-table-wrap');
+  if (!state.payments.length) {
+    wrap.innerHTML = '<div class="empty-state">nenhum pagamento criado ainda</div>';
+    return;
+  }
+  wrap.innerHTML = `<table class="payments-table">
+    <thead><tr>
+      <th>ID</th><th>Descrição</th><th>Valor</th><th>Método</th><th>Status</th><th>Ações</th>
+    </tr></thead>
+    <tbody>
+      ${state.payments.map(p => {
+        const id = p.id || p.paymentId || '—';
+        const s = (p.status || 'PENDING').toLowerCase();
+        const badgeClass = 'badge badge-' + s;
+        return `<tr>
+          <td><span class="pay-id">${id}</span></td>
+          <td><span class="pay-desc">${p.description || '—'}</span></td>
+          <td><span class="pay-amount">${p.amount != null ? 'R$ ' + Number(p.amount).toFixed(2) : '—'}</span></td>
+          <td><span class="pay-id">${p.paymentMethod || '—'}</span></td>
+          <td><span class="${badgeClass}">${p.status || 'PENDING'}</span></td>
+          <td><div class="tbl-actions">
+            <button class="tbl-btn tbl-btn-pay" onclick="quickAction('${id}','pay')">pay</button>
+            <button class="tbl-btn tbl-btn-cancel" onclick="quickAction('${id}','cancel')">cancel</button>
+          </div></td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
+}
+
+function showResponse(prefix, data, ok, statusCode) {
+  const box = document.getElementById('res-' + prefix);
+  const statusEl = document.getElementById('res-' + prefix + '-status');
+  const bodyEl = document.getElementById('res-' + prefix + '-body');
+  box.classList.add('show');
+  statusEl.textContent = statusCode;
+  statusEl.className = ok ? 'status-ok' : 'status-err';
+  bodyEl.textContent = JSON.stringify(data, null, 2);
+}
+
+async function apiCall(method, path, body) {
+  try {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(base() + path, opts);
+    let data;
+    try { data = await res.json(); } catch { data = { status: res.status, message: res.statusText }; }
+    addLog(method, path, res.status, res.ok);
+    return { ok: res.ok, status: res.status, data };
+  } catch (e) {
+    addLog(method, path, 'NETWORK ERROR', false);
+    return { ok: false, status: 'ERR', data: { error: e.message } };
+  }
+}
+
+async function createPayment() {
+  const desc = document.getElementById('c-desc').value.trim();
+  const amount = parseFloat(document.getElementById('c-amount').value);
+  const email = document.getElementById('c-email').value.trim();
+  const method = document.getElementById('c-method').value;
+  if (!desc || isNaN(amount)) { notify('Preencha descrição e valor', false); return; }
+  const body = { description: desc, amount, email, method: method };
+  const r = await apiCall('POST', '/payments', body);
+  showResponse('create', r.data, r.ok, r.status);
+  if (r.ok && r.data) {
+    state.payments.unshift({ ...r.data, description: desc, amount, paymentMethod: method, status: r.data.status || 'PENDING' });
+    renderPayments(); updateMetrics();
+    notify('Pagamento criado!', true);
+  } else {
+    notify('Erro ao criar pagamento', false);
+  }
+}
+
+function clearCreate() {
+  ['c-desc', 'c-amount', 'c-email'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('res-create').classList.remove('show');
+}
+
+async function getPayment() {
+  const id = document.getElementById('q-id').value.trim();
+  if (!id) { notify('Informe o Payment ID', false); return; }
+  const r = await apiCall('GET', '/payments/' + id);
+  showResponse('consult', r.data, r.ok, r.status);
+}
+
+async function payPayment() {
+  const id = document.getElementById('pay-id').value.trim();
+  if (!id) { notify('Informe o Payment ID', false); return; }
+  const r = await apiCall('POST', '/payments/' + id + '/pay');
+  showResponse('pay', r.data, r.ok, r.status);
+  if (r.ok) { updatePaymentInState(id, r.data); notify('Pagamento confirmado!', true); }
+  else { notify('Erro ao confirmar pagamento', false); }
+}
+
+async function cancelPayment() {
+  const id = document.getElementById('cancel-id').value.trim();
+  if (!id) { notify('Informe o Payment ID', false); return; }
+  const r = await apiCall('POST', '/payments/' + id + '/cancel');
+  showResponse('cancel', r.data, r.ok, r.status);
+  if (r.ok) { updatePaymentInState(id, r.data); notify('Pagamento cancelado', true); }
+  else { notify('Erro ao cancelar', false); }
+}
+
+async function quickAction(id, action) {
+  const r = await apiCall('POST', '/payments/' + id + '/' + action);
+  if (r.ok) {
+    updatePaymentInState(id, r.data);
+    notify(action === 'pay' ? 'Pagamento confirmado!' : 'Pagamento cancelado', true);
+  } else {
+    notify('Erro na ação', false);
+  }
+}
+
+function updatePaymentInState(id, data) {
+  const i = state.payments.findIndex(p => (p.id || p.paymentId) === id);
+  if (i >= 0 && data) state.payments[i] = { ...state.payments[i], ...data };
+  renderPayments(); updateMetrics();
+}
+
+function buildPayload() {
+  const type = document.getElementById('w-type').value;
+  const action = document.getElementById('w-action').value;
+  const id = document.getElementById('w-mpid').value || '12345678';
+  document.getElementById('w-payload').value = JSON.stringify({ type, action, data: { id } }, null, 2);
+}
+
+async function sendWebhook() {
+  let body;
+  try { body = JSON.parse(document.getElementById('w-payload').value); }
+  catch { notify('Payload JSON inválido', false); return; }
+  const r = await apiCall('POST', '/webhooks/mercadopago', body);
+  showResponse('webhook', r.ok ? { message: 'Webhook recebido com sucesso', httpStatus: r.status } : r.data, r.ok, r.status);
+  notify(r.ok ? 'Webhook enviado!' : 'Erro no webhook', r.ok);
+}
+
+buildPayload();
+</script>
+</body>
+</html>

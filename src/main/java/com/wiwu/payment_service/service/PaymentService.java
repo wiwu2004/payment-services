@@ -103,5 +103,18 @@ public class PaymentService  {
         );
     }
 
+    @Transactional
+    public void updateStatusFromProvider(String paymentId, String providerStatus) {
+
+        Payment payment = paymentsRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+
+        switch (providerStatus) {
+            case "approved" -> payment.markAsPaid();
+            case "rejected" -> payment.markAsFailed();
+            default -> {
+            }
+        }
+    }
 }
 
